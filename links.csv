@@ -1,0 +1,10 @@
+source,target,info,distance
+0,1,Wholesale Price,30
+0,3,input,42
+0,4,"wholesale Price, marginal emission factors, EMR,  capacity market cost, CFDs",35
+2,3,Investor Hurdle rates,23
+5,4,Policy Energy saving,54
+4,6,input,32
+8,7,input,64
+9,10,input,34
+11,12,housing stock,32

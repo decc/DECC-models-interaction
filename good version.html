@@ -1,0 +1,490 @@
+
+        <!DOCTYPE html>
+        <meta charset="utf-8">
+<body> 
+<h1> DECC models interdependencies </h1> 
+
+<style>
+.link {
+stroke: #666;
+opacity: 0.6;
+stroke-width: 1.5px;
+}
+
+.node circle {
+stroke: #fff;
+opacity: 0.6;
+stroke-width: 3px;
+}
+text {
+font: 10px serif;
+opacity: 1;
+pointer-events: none;
+}
+
+table, th, td {
+  border: 1px solid black;
+  text-align: center;
+  padding: 5px;
+  font-size:12px;
+
+
+}
+td:hover{
+    background-color:aliceblue;
+    color:red;
+
+}
+
+#viz{
+
+  display: inline;
+}
+</style>
+
+<body>
+<h1> Model Interactions </h1>
+<p>
+Model interactions are shown in the following map
+</p>
+    <div id="viz"></div>
+    
+<!-- FOR SEARCH FUNCTION -->
+<p> <b> Search Function </b> </p>
+<div class="ui-widget">
+   <input id="search">
+    <button id="searchbutton" type="button">Search</button>
+</div> 
+
+<script src=http://d3js.org/d3.v3.min.js></script>
+    <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/jquery-ui.min.js"></script>
+
+
+<script>
+
+ d3.select("#viz").append("text")
+  .text("Link Information")
+  .style("font-weight", "bold")
+  .style("font-size", "20px");
+
+var tableDataLink = [["Source","Target","Info"],["","",""]];
+
+var linkTable = d3.select("#viz").append("table")
+    .attr("id", "linkTable")
+    .style("border-collapse", "collapse")
+    .style("border", "2px black solid")
+    .selectAll("tr")
+    .data(tableDataLink)
+    .enter().append("tr")
+    .style("font-weight", "bold")
+    .style("font-size", "16px")
+    .attr("id", "data")
+    .selectAll("td")
+    .data(function(d){return d;})
+    .enter().append("td")
+    .text(function(d){return d;});
+
+
+d3.select("#viz").append("p");
+d3.select("#viz").append("text")
+  .text("Model Information")
+  .style("font-weight", "bold")
+  .style("font-size", "20px");
+
+var tableDataNode = [["Model", "Type", "Description","Business Critical?", "QA status", "link", "function"],["","","","","","",""]]; 
+
+var nodeTable = d3.select("#viz").append("table")
+    .attr("id", "nodeTable")
+    .style("border-collapse", "collapse")
+    .style("border", "2px black solid")
+    .selectAll("tr")
+    .data(tableDataNode)
+    .enter().append("tr")
+    .style("font-weight", "bold")
+    .style("font-size", "16px")
+    .attr("id", "data")
+    .selectAll("td")
+    .data(function(d){return d;})
+    .enter().append("td")
+    .text(function(d){return d;});
+
+d3.select("#viz").append("p");
+d3.select("#viz").append("text")
+  .text("Functionalities")
+  .style("font-weight", "bold")
+  .style("font-size", "20px");
+
+
+   d3.csv("links.csv", function(links) {
+      links.forEach(function(d1){
+          d1.source=+d1.source;
+          d1.target= +d1.target;  
+          d1.info= d1.info;
+          d1.distance=+d1.distance;
+
+
+      });
+
+      d3.csv("nodes.csv", function(nodes){
+        nodes.forEach(function(d2){
+          d2.id=+d2.id;
+          d2.name=d2.name;
+          d2.group=d2.group;
+          d2.Info=d2.Info;
+          d2.Size=+d2.Size;
+          d2.BC=d2.BC;
+          d2.QA_status=d2.QA_status;
+
+        });
+
+        console.log(nodes);
+      
+        var width = 1000;
+        var height = 800;
+
+        var force = d3.layout.force()
+        .nodes(d3.values(nodes))
+        .links(links)
+        .size([width, height])
+        .linkStrength(0.1)
+        .friction(0.9)
+        .linkDistance(function(d){
+                return d.distance;
+        })
+        .gravity(0.1)
+        .theta(0.8)
+        .alpha(0.1)
+        .charge(-200)
+        .on("tick", tick)
+        .start();
+        console.log(force);
+        
+
+        var svg = d3.select("body").append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+
+        //define arrows
+        svg.append("svg:defs").selectAll("marker")
+            .data(["end"])
+          .enter().append("svg:marker")    
+            .attr("id", String)
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 15)
+            .attr("refY", -1.5)
+            .attr("markerWidth", 6)
+            .attr("markerHeight", 6)
+            .attr("orient", "auto")
+          .append("svg:path")
+            .attr("d", "M0,-5L10,0L0,5");
+
+
+        var link = svg.selectAll(".link")
+        .data(force.links())
+        .enter().append("line")
+        .attr("class", "link")
+        .attr("marker-end", "url(#end)")
+        .on("click", clicklink);
+
+
+        var node = svg.selectAll(".node")
+        .data(force.nodes())
+        .enter().append("g")
+        .attr("class", "node")
+        .on("mouseover", mouseover)
+        .on("mouseout", mouseout)
+        .on("click", click)
+        .on("dblclick", connectedNodes)
+        .call(force.drag);
+
+        var color = d3.scale.category10();
+        var scale=d3.scale.linear()
+                  .domain([0,100])
+                  .range([6,15]);
+        
+        node.append("circle")
+        .attr("r", function(d){return scale(d.Size);})
+        .style("fill", function(d){return color (d.group);});
+
+
+
+        node.append("text")
+        .attr("x", 12)
+        .attr("dy", ".35em")
+        .style("fill","black")
+        .text(function(d) { return d.name; });
+
+        var tableDataFunction = [["Highlight Business Critical models", "Highlight models QAed by MIT" ,"Reset Graph"]];  
+
+        var functionTable = d3.select("#viz").append("table")
+            .attr("id", "functionTable")
+            .style("border-collapse", "collapse")
+            .style("border", "2px black solid")
+            .selectAll("tr")
+            .data(tableDataFunction)
+            .enter().append("tr")
+            .style("font-weight", "bold")
+            .style("font-size", "16px")
+            .selectAll("td")
+            .data(function(d){return d;})
+            .enter().append("td")
+            .text(function(d){return d;}); 
+
+          var row =  document.getElementById("functionTable").insertRow(1);
+          var cell= row.insertCell();
+          var button = document.createElement("input");
+          button.type="button";
+          button.value = "Colour models according to BC status";
+          button.onclick = highlightBCNodes;
+          cell.appendChild(button);   
+
+          var cell= row.insertCell();
+          var button = document.createElement("input");
+          button.type="button";
+          button.value = "Colour models according to QA status";
+          button.onclick = highlightQAedNodes;
+          cell.appendChild(button);
+
+          var cell= row.insertCell();
+          var button = document.createElement("input");
+          button.type="button";
+          button.value = "Back to original graph";
+          button.onclick = resetGraph;
+          cell.appendChild(button);
+
+
+
+        function tick() {
+          link
+          .attr("x1", function(d) { return d.source.x; })
+          .attr("y1", function(d) { return d.source.y; })
+          .attr("x2", function(d) { return d.target.x; })
+          .attr("y2", function(d) { return d.target.y; });
+
+          node.attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; });
+        }
+
+        function mouseover() {
+          d3.select(this).select("circle").transition()
+          .duration(750)
+          .attr("r",25);
+          d3.select(this).select("text").transition()
+          .duration(750)
+          .attr("x", 22)
+          .style("stroke-width", ".5px")
+          .style("opacity", 1)
+          .style("fill", "#E34A33")
+          .style("font", "17.5px serif");        
+        }
+
+        function mouseout() {
+          d3.select(this).select("circle").transition()
+          .duration(750)
+          .attr("r",  function(d){return scale(d.Size);});
+          
+          d3.select(this).select("text").transition()
+          .duration(750)
+          .attr("x", 22)
+          .style("stroke-width", ".5px")
+          .style("opacity", 1)
+          .style("fill", "black")
+          .style("font", "10px serif"); 
+        }
+        // action to take on mouse click
+        function click(d2) {
+          //resetGraph();
+          d3.select(this).select("text").transition()
+          .duration(750)
+          .attr("x", 22)
+          .style("stroke-width", ".5px")
+          .style("opacity", 1)
+          .style("fill", "#E34A33")
+          .style("font", "17.5px serif");
+          d3.select(this).select("circle").transition()
+          .duration(750)
+          .style("fill", "purple")
+          .attr("r", function(d){return scale(d.Size);});
+          
+          var nodeDetails =[d2.name,d2.group,d2.Info,d2.BC, d2.QA_status,d2.webpage];
+              
+          document.getElementById("nodeTable").deleteRow(1);
+
+          var row =  document.getElementById("nodeTable").insertRow(1);
+
+
+          for (index=0;index<nodeDetails.length;index++){
+                if(index==nodeDetails.length-1){
+                  var cell= row.insertCell(index);
+                  cell.innerHTML="link".link(nodeDetails[index]);
+                } else {
+                  var cell= row.insertCell(index);
+                  cell.innerHTML=nodeDetails[index];
+                }
+
+          }
+          var cell= row.insertCell(nodeDetails.length);
+          var button = document.createElement("input");
+          button.type="button";
+          button.value = "Clear nodes colours";
+          button.onclick = resetNode;
+          cell.appendChild(button);
+
+        //window.open(d2.webpage, '_blank')
+        }
+
+        // action to take on mouse double click
+        function dblclick() {
+          d3.select(this).select("circle").transition()
+          .duration(750)
+          .attr("r", 6)
+          .style("fill", "#E34A33");
+          d3.select(this).select("text").transition()
+          .duration(750)
+          .attr("x", 12)
+          .style("stroke", "none")
+          .style("fill", "#E34A33")
+          .style("stroke", "none")
+          .style("opacity", 0.6)
+          .style("font", "7px serif");
+        }
+
+        function clicklink(d){
+            resetLink();
+            d3.select(this) 
+            .style("stroke", "#E34A33")
+            .attr("stroke-width", 3);
+            var linkDetails =[d.source.name,d.target.name,d.info];
+            
+            document.getElementById("linkTable").deleteRow(1);
+
+            var row =  document.getElementById("linkTable").insertRow(1);
+
+
+            for (index=0;index<linkDetails.length;index++){
+              var cell= row.insertCell(index);
+              cell.innerHTML=linkDetails[index];
+            }
+        }
+
+        function resetLink(){
+          svg.selectAll(".link")
+            .style("stroke","#666")
+            .style("opacity",0.6);
+        }
+
+        function resetNode(){
+            svg.selectAll(".node").select("circle")
+            .style("fill", function(d){return color (d.group);})
+            .style("opacity",0.6);
+        }
+        function resetGraph(){
+          resetNode();
+          resetLink();
+        }
+        function highlightBCNodes(){
+
+            svg.selectAll(".node").select("circle")
+                .style("fill", function(d){return color (d.BC);});      
+        }
+
+        function highlightQAedNodes(){
+
+            svg.selectAll(".node").select("circle")
+                .style("fill", function(d){return color (d.QA_status);});      
+        }
+
+        //HIGHLIGHT FUNCTIONALITY
+        //Toggle stores whether the highlighting is on
+        var toggle = 0;
+        //Create an array logging what is connected to what
+        var linkedByIndex = {};
+
+        for (i = 0; i < node[0].length; i++) {
+            linkedByIndex[i + "," + i] = 1;
+        };
+
+        links.forEach(function (d) {
+            linkedByIndex[d.source.id + "," + d.target.id] = 1;
+        });
+
+        //This function looks up whether a pair are neighbours
+        function neighboring(a, b) {
+            return linkedByIndex[a.index + "," + b.index];
+        }
+        function connectedNodes() {
+            if (toggle == 0) {
+                //Reduce the opacity of all but the neighbouring nodes
+                d = d3.select(this).node().__data__;
+                node.select("circle").style("opacity", function (o) {
+                    return neighboring(d, o) | neighboring(o, d) ? 0.6 : 0.1;
+                });
+                link.style("opacity", function (o) {
+                    return d.index==o.source.index | d.index==o.target.index ? 1 : 0.1;
+                });
+                //Reduce the op
+                toggle = 1;
+            } else {
+                //Put them back to opacity=0.6
+                node.select("circle").style("opacity", 0.6);
+                link.style("opacity", 0.6);
+                toggle = 0;
+            }
+        }
+
+
+
+
+
+
+        //SEARCH FUNCTIONALITY
+        var optArray = [];
+        for (var i = 0; i < nodes.length - 1; i++) {
+            optArray.push(nodes[i].name);
+        }
+        console.log(optArray);
+        optArray = optArray.sort();
+        $(function () {
+            $("#search").autocomplete({
+                source: optArray
+            });
+        });
+
+        $("#searchbutton").click(searchNode);
+        function searchNode() {
+            //find the node
+            resetGraph();
+            var selectedVal = document.getElementById('search').value;
+            
+            var node = svg.selectAll(".node");
+
+            if (selectedVal == "none") {
+                node.style("stroke", "white").style("stroke-width", "1");
+
+            } else {
+                var selected = node.select("circle").filter(function (d, i) {
+                    return d.name != selectedVal;
+                });
+                selected.style("opacity", "0.1");
+                var link = svg.selectAll(".link")
+                link.style("opacity", "0.1");
+
+            }
+        }
+
+
+
+
+      });
+
+  });
+ 
+</script>
+ 
+
+ 
+
+</body>
+ 
+</html>
